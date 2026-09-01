@@ -27,7 +27,8 @@ BarWidget {
   readonly property string statusLabel: {
     if (serviceState === "uploading" || serviceState === "queued") return "Uploading"
     if (serviceState === "capturing") return "Capture"
-    if (serviceState === "failed" || serviceState === "not_ready") return "Failed"
+    if (serviceState === "failed") return "Failed"
+    if (serviceState === "not_ready") return "Not ready"
     if (lastHost !== "") return lastHost
     return "Ready"
   }
