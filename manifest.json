@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.sharex.omaxerahs",
+  "name": "OmaXerahs",
+  "version": "0.1.0",
+  "author": "ShareX Team",
+  "license": "MIT",
+  "description": "Upload Omarchy screenshots with your configured XerahS image destination.",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "OmaXerahs",
+    "description": "Capture and upload a screenshot through XerahS.",
+    "category": "Files",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "copyUrlToClipboard": true,
+      "notifyOnComplete": true,
+      "openUrlOnNotificationClick": false,
+      "captureMode": "smart"
+    },
+    "schema": [
+      {
+        "key": "copyUrlToClipboard",
+        "type": "boolean",
+        "label": "Copy URL to clipboard after upload",
+        "defaultValue": true
+      },
+      {
+        "key": "notifyOnComplete",
+        "type": "boolean",
+        "label": "Notify when upload finishes",
+        "defaultValue": true
+      },
+      {
+        "key": "openUrlOnNotificationClick",
+        "type": "boolean",
+        "label": "Open URL when the notification is clicked",
+        "defaultValue": false
+      },
+      {
+        "key": "captureMode",
+        "type": "enum",
+        "label": "Capture mode for the bar button",
+        "options": ["smart", "region", "windows", "fullscreen"],
+        "defaultValue": "smart"
+      }
+    ]
+  }
+}

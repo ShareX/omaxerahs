@@ -1,0 +1,12 @@
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.qmlc
+*.jsc
+node_modules/
+.env
+.qml-cache/
