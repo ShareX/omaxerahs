@@ -108,3 +108,7 @@ Bar-widget settings in `shell.json`:
 | `captureMode` | `smart` | `smart`, `region`, `windows`, or `fullscreen` |
 
 v1 does not watch directories.
+
+## End-to-end on Omarchy
+
+Automated tests here cannot exercise grim, Hyprland, or `wl-copy`. On an Omarchy box follow [TODO-OMARCHY-E2E.md](TODO-OMARCHY-E2E.md).
