@@ -22,6 +22,8 @@ Item {
   property bool secretStoreFallback: false
   property bool tearingDown: false
   property bool queueFullNotified: false
+  property bool captureTimedOut: false
+  property bool uploadTimedOut: false
 
   property var uploadQueue: []
   property string inFlightPath: ""
@@ -89,6 +91,10 @@ Item {
     if (root.tearingDown) {
       return Model.errorJson("cancelled", "service is shutting down")
     }
+    if (root.readiness !== "ready") {
+      root.startReadiness()
+      return Model.errorJson(root.readiness, root.readinessMessage || "OmaXerahs is not ready")
+    }
     if (captureProc.running || root.state === "capturing") {
       return Model.errorJson("busy", "A capture is already in progress")
     }
@@ -98,6 +104,7 @@ Item {
     }
 
     root.state = "capturing"
+    root.captureTimedOut = false
     captureTimeout.restart()
     captureProc.command = ["omarchy", "capture", "screenshot", value, "save"]
     captureProc.running = true
@@ -240,6 +247,11 @@ Item {
   function onCaptureExited(exitCode, stdout) {
     captureTimeout.stop()
     if (root.tearingDown) return
+    if (root.captureTimedOut) {
+      root.captureTimedOut = false
+      root.failCapture("timeout", "screenshot capture timed out")
+      return
+    }
 
     var text = String(stdout || "").trim()
     if (Number(exitCode) === 0 && text === "") {
@@ -383,6 +395,7 @@ Item {
       return
     }
     if (root.state !== "capturing") root.state = "uploading"
+    root.uploadTimedOut = false
     uploadTimeout.restart()
     uploadProc.command = ["omaxerahs", "upload", "--json", "--", path]
     uploadProc.running = true
@@ -461,6 +474,11 @@ Item {
       root.clearInFlight()
       return
     }
+    if (root.uploadTimedOut) {
+      root.uploadTimedOut = false
+      root.failUpload("timeout", "upload timed out", root.inFlightPath)
+      return
+    }
     var accepted = Model.acceptUpload(exitCode, stdout)
     var path = root.inFlightPath
     if (!accepted.ok) {
@@ -504,7 +522,7 @@ Item {
 
     if (kind === "capabilities") {
       var caps = Model.parseOneJsonObject(stdout)
-      if (!caps.ok || !Model.capabilitiesCompatible(caps.value)) {
+      if (Number(exitCode) !== 0 || !caps.ok || !Model.capabilitiesCompatible(caps.value)) {
         root.setNotReady("cli_incompatible")
         return
       }
@@ -516,7 +534,7 @@ Item {
 
     if (kind === "doctor") {
       var doctor = Model.parseOneJsonObject(stdout)
-      if (!doctor.ok || !Model.doctorReady(doctor.value)) {
+      if (Number(exitCode) !== 0 || !doctor.ok || !Model.doctorReady(doctor.value)) {
         var code = "image_not_ready"
         if (doctor.ok && doctor.value && doctor.value.error && doctor.value.error.code === "secret_store") {
           code = "secret_store"
@@ -565,8 +583,8 @@ Item {
     interval: 120000
     repeat: false
     onTriggered: {
+      root.captureTimedOut = true
       root.stopProcess(captureProc)
-      root.failCapture("timeout", "screenshot capture timed out")
     }
   }
 
@@ -575,8 +593,8 @@ Item {
     interval: 300000
     repeat: false
     onTriggered: {
+      root.uploadTimedOut = true
       root.stopProcess(uploadProc)
-      root.failUpload("timeout", "upload timed out", root.inFlightPath)
     }
   }
 

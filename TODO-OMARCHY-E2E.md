@@ -1,5 +1,19 @@
 # Omarchy box: end-to-end capture checklist
 
+## Execution record: 2026-09-02
+
+Tested on Omarchy 4.0.2-1 under a live Hyprland/Wayland session.
+
+- [x] `omarchy plugin validate` succeeds against this repository.
+- [x] `tests/model-test.sh` passes directly (the test scripts are now executable).
+- [x] The plugin installs, enables, and answers `omarchy-shell omaxerahs status`.
+- [x] Install/enable performs no upload (`last` is null and the queue is empty).
+- [x] With no native XerahS installed, status reports `cli_missing` and capture is rejected before `grim` or an upload child starts.
+- [x] .NET SDK 10.0.111 and both pinned XerahS submodules are installed/prepared for a native build.
+- [ ] Native capture/upload cases below remain blocked: the first NuGet restore is incomplete because large native package downloads repeatedly reset. A resumable local package cache was started under `/home/majk/Work/.nuget-local/`. XerahS and an Image destination must still be installed/configured before those cases can run.
+
+Code review during this run also tightened the readiness gate, required the advertised `doctor.image` and `upload.image` capabilities on schema version 1, failed closed on nonzero probe exits, and made timeout completion single-owner.
+
 Run this on a real Omarchy machine. The Windows workspace cannot exercise grim/slurp, Hyprland binds, `wl-copy`, or `omarchy-shell` IPC.
 
 Native XerahS must already ship `/usr/bin/omaxerahs` (version that contains the OmaXerahs host). Plugin repo: this checkout, or `omarchy plugin add https://github.com/ShareX/omaxerahs.git`.

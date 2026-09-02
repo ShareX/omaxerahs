@@ -133,10 +133,17 @@ function validateScreenshotPath(path) {
 
 function capabilitiesCompatible(obj) {
   if (!obj || typeof obj !== "object") return false
-  if (obj.schemaVersion === undefined || obj.schemaVersion === null) return false
+  if (Number(obj.schemaVersion) !== SCHEMA_VERSION) return false
   var min = obj.minPluginProtocol
   if (min !== undefined && min !== null && Number(min) > 1) return false
-  return true
+  if (!Array.isArray(obj.capabilities)) return false
+  var doctorImage = false
+  var uploadImage = false
+  for (var i = 0; i < obj.capabilities.length; i++) {
+    if (obj.capabilities[i] === "doctor.image") doctorImage = true
+    if (obj.capabilities[i] === "upload.image") uploadImage = true
+  }
+  return doctorImage && uploadImage
 }
 
 function doctorReady(obj) {
