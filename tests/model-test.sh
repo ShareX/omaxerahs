@@ -12,6 +12,7 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 node "$ROOT/tests/model-test.js"
+bash "$ROOT/tests/run-bounded-test.sh"
 
 # Extra fail-closed check with a second parser so extra tokens cannot sneak through.
 node - <<'JS'

@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Run argv in a private process group with a deadline and stdout/stderr caps.
+
+Exit 124 on deadline, 125 when a stream exceeds --max-bytes. On either
+condition, or on SIGTERM/SIGINT/SIGHUP, terminate and reap the whole group.
+"""
+from __future__ import annotations
+
+import os
+import select
+import signal
+import sys
+import time
+
+EXIT_TIMEOUT = 124
+EXIT_OVERFLOW = 125
+
+
+def parse_args(argv: list[str]) -> tuple[float, int, list[str]]:
+    timeout = 30.0
+    max_bytes = 65536
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--timeout" and i + 1 < len(argv):
+            timeout = float(argv[i + 1])
+            i += 2
+            continue
+        if argv[i] == "--max-bytes" and i + 1 < len(argv):
+            max_bytes = int(argv[i + 1])
+            i += 2
+            continue
+        if argv[i] == "--":
+            i += 1
+            break
+        break
+    cmd = argv[i:]
+    if not cmd or timeout <= 0 or max_bytes <= 0:
+        sys.stderr.write("run-bounded: usage: --timeout SEC --max-bytes N -- cmd [args...]\n")
+        sys.exit(2)
+    return timeout, max_bytes, cmd
+
+
+def reap_group(pgid: int, blocking: bool) -> None:
+    flags = 0 if blocking else os.WNOHANG
+    while True:
+        try:
+            pid, _status = os.waitpid(-pgid, flags)
+        except ChildProcessError:
+            return
+        except OSError:
+            return
+        if pid == 0:
+            return
+
+
+def kill_group(pgid: int) -> None:
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        reap_group(pgid, blocking=False)
+        return
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        reap_group(pgid, blocking=False)
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    reap_group(pgid, blocking=True)
+
+
+def main() -> None:
+    timeout, max_bytes, cmd = parse_args(sys.argv[1:])
+    read_out, write_out = os.pipe()
+    read_err, write_err = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        try:
+            os.setsid()
+            os.close(read_out)
+            os.close(read_err)
+            os.dup2(write_out, 1)
+            os.dup2(write_err, 2)
+            os.close(write_out)
+            os.close(write_err)
+            os.execvp(cmd[0], cmd)
+        except FileNotFoundError:
+            os._exit(127)
+        except OSError:
+            os._exit(126)
+    os.close(write_out)
+    os.close(write_err)
+    pgid = pid
+
+    def on_signal(signum: int, _frame: object) -> None:
+        kill_group(pgid)
+        os._exit(EXIT_TIMEOUT if signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP) else 128 + signum)
+
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGHUP, on_signal)
+    os.set_blocking(read_out, False)
+    os.set_blocking(read_err, False)
+
+    counts = {read_out: 0, read_err: 0}
+    dest = {read_out: sys.stdout.buffer, read_err: sys.stderr.buffer}
+    open_fds = {read_out, read_err}
+    status: int | None = None
+    overflow = False
+    timed_out = False
+    deadline = time.monotonic() + timeout
+
+    while open_fds or status is None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        ready, _, _ = select.select(list(open_fds), [], [], min(remaining, 0.1))
+        for fd in ready:
+            try:
+                chunk = os.read(fd, 8192)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                os.close(fd)
+                open_fds.discard(fd)
+                continue
+            room = max_bytes - counts[fd]
+            if room <= 0:
+                overflow = True
+                break
+            emit = chunk if len(chunk) <= room else chunk[:room]
+            dest[fd].write(emit)
+            dest[fd].flush()
+            counts[fd] += len(emit)
+            if len(chunk) > room:
+                overflow = True
+                break
+        if overflow:
+            break
+        if status is None:
+            wpid, wstatus = os.waitpid(pid, os.WNOHANG)
+            if wpid == pid:
+                status = wstatus
+
+    for fd in list(open_fds):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    if overflow or timed_out:
+        kill_group(pgid)
+        sys.exit(EXIT_OVERFLOW if overflow else EXIT_TIMEOUT)
+
+    if status is None:
+        _wpid, status = os.waitpid(pid, 0)
+    reap_group(pgid, blocking=False)
+
+    if os.WIFEXITED(status):
+        sys.exit(os.WEXITSTATUS(status))
+    if os.WIFSIGNALED(status):
+        sys.exit(128 + os.WTERMSIG(status))
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

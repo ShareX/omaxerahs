@@ -44,7 +44,7 @@ Nothing is uploaded on install. Automatic directory watching is not present in v
    `ok` must be true and `image.ready` must be true. A File-category destination is not enough.
 3. Add and enable this plugin. Nothing is uploaded until you click the bar button or invoke IPC.
 
-The plugin never runs `omaxerahs doctor --fix` and never uses `sudo`.
+The plugin never runs `omaxerahs doctor --fix`.
 
 ## Explicit vs future automatic
 

@@ -54,6 +54,29 @@ Item {
   readonly property string stateDir: xdgStateHome && xdgStateHome !== ""
     ? (xdgStateHome + "/omaxerahs/")
     : (home + "/.local/state/omaxerahs/")
+  readonly property int stdoutCapBytes: 65536
+  readonly property int probeTimeoutSec: 15
+  readonly property int pathTimeoutSec: 10
+  readonly property int captureTimeoutSec: 120
+  readonly property int uploadTimeoutSec: 300
+  readonly property int supervisorTimeoutExit: 124
+  readonly property int supervisorOverflowExit: 125
+  readonly property string boundedRunner: {
+    var raw = String(Qt.resolvedUrl("run-bounded"))
+    if (raw.indexOf("file://") === 0) return decodeURIComponent(raw.substring(7))
+    return raw
+  }
+
+  function boundedCommand(timeoutSec, argv) {
+    var cmd = [
+      root.boundedRunner,
+      "--timeout", String(timeoutSec),
+      "--max-bytes", String(root.stdoutCapBytes),
+      "--"
+    ]
+    for (var i = 0; i < argv.length; i++) cmd.push(argv[i])
+    return cmd
+  }
 
   function applySettings(obj) {
     if (!obj || typeof obj !== "object") return
@@ -106,7 +129,7 @@ Item {
     root.state = "capturing"
     root.captureTimedOut = false
     captureTimeout.restart()
-    captureProc.command = ["omarchy", "capture", "screenshot", value, "save"]
+    captureProc.command = root.boundedCommand(root.captureTimeoutSec, ["omarchy", "capture", "screenshot", value, "save"])
     captureProc.running = true
     return Model.acceptedJson("capturing")
   }
@@ -143,7 +166,7 @@ Item {
   function startReadiness() {
     if (root.tearingDown || probeProc.running) return
     root.probeKind = "which"
-    probeProc.command = ["which", "omaxerahs"]
+    probeProc.command = root.boundedCommand(root.probeTimeoutSec, ["which", "omaxerahs"])
     probeProc.running = true
   }
 
@@ -254,12 +277,22 @@ Item {
     }
 
     var text = String(stdout || "").trim()
-    if (Number(exitCode) === 0 && text === "") {
+    var code = Number(exitCode)
+    if (code === root.supervisorTimeoutExit || root.captureTimedOut) {
+      root.captureTimedOut = false
+      root.failCapture("timeout", "screenshot capture timed out")
+      return
+    }
+    if (code === root.supervisorOverflowExit) {
+      root.failCapture("invalid_json", "capture stdout exceeded the byte cap")
+      return
+    }
+    if (code === 0 && text === "") {
       root.restoreStateAfterCapture()
       root.startReadiness()
       return
     }
-    if (Number(exitCode) !== 0) {
+    if (code !== 0) {
       root.failCapture("provider", "grim failed to capture a screenshot.")
       return
     }
@@ -282,7 +315,7 @@ Item {
     }
     root.pathAction = action
     root.pathSubject = path
-    pathProc.command = ["realpath", "--canonicalize-existing", "--", path]
+    pathProc.command = root.boundedCommand(root.pathTimeoutSec, ["realpath", "--canonicalize-existing", "--", path])
     pathProc.running = true
   }
 
@@ -298,7 +331,14 @@ Item {
   function onPathResolved(exitCode, stdout) {
     if (root.tearingDown) return
     var canonical = String(stdout || "").trim()
-    if (Number(exitCode) !== 0 || canonical === "") {
+    var code = Number(exitCode)
+    if (code === root.supervisorTimeoutExit || code === root.supervisorOverflowExit) {
+      if (root.pathAction === "accept") root.failCapture("timeout", "path check timed out")
+      else root.failUpload("timeout", "path check timed out", root.pathSubject)
+      root.flushPendingPathCheck()
+      return
+    }
+    if (code !== 0 || canonical === "") {
       if (root.pathAction === "accept") root.failCapture("invalid_path", "screenshot path could not be canonicalized")
       else root.failUpload("invalid_path", "file disappeared before upload", root.pathSubject)
       root.flushPendingPathCheck()
@@ -397,7 +437,7 @@ Item {
     if (root.state !== "capturing") root.state = "uploading"
     root.uploadTimedOut = false
     uploadTimeout.restart()
-    uploadProc.command = ["omaxerahs", "upload", "--json", "--", path]
+    uploadProc.command = root.boundedCommand(root.uploadTimeoutSec, ["omaxerahs", "upload", "--json", "--", path])
     uploadProc.running = true
   }
 
@@ -474,9 +514,14 @@ Item {
       root.clearInFlight()
       return
     }
-    if (root.uploadTimedOut) {
+    var code = Number(exitCode)
+    if (code === root.supervisorTimeoutExit || root.uploadTimedOut) {
       root.uploadTimedOut = false
       root.failUpload("timeout", "upload timed out", root.inFlightPath)
+      return
+    }
+    if (code === root.supervisorOverflowExit) {
+      root.failUpload("invalid_json", "upload stdout exceeded the byte cap", root.inFlightPath)
       return
     }
     var accepted = Model.acceptUpload(exitCode, stdout)
@@ -497,10 +542,16 @@ Item {
     var text = String(stdout || "").trim()
     var kind = root.probeKind
 
+    var code = Number(exitCode)
+    if (code === root.supervisorTimeoutExit || code === root.supervisorOverflowExit) {
+      root.setNotReady(kind === "which" ? "cli_missing" : "cli_incompatible")
+      return
+    }
+
     if (kind === "which") {
-      if (Number(exitCode) === 0 && text !== "") {
+      if (code === 0 && text !== "") {
         root.probeKind = "capabilities"
-        probeProc.command = ["omaxerahs", "capabilities", "--json"]
+        probeProc.command = root.boundedCommand(root.probeTimeoutSec, ["omaxerahs", "capabilities", "--json"])
         probeProc.running = true
         return
       }
@@ -510,31 +561,31 @@ Item {
         return
       }
       root.probeKind = "flatpak"
-      probeProc.command = ["flatpak", "info", "com.xerahs.XerahS"]
+      probeProc.command = root.boundedCommand(root.probeTimeoutSec, ["flatpak", "info", "com.xerahs.XerahS"])
       probeProc.running = true
       return
     }
 
     if (kind === "flatpak") {
-      root.setNotReady(Number(exitCode) === 0 ? "cli_flatpak" : "cli_missing")
+      root.setNotReady(code === 0 ? "cli_flatpak" : "cli_missing")
       return
     }
 
     if (kind === "capabilities") {
       var caps = Model.parseOneJsonObject(stdout)
-      if (Number(exitCode) !== 0 || !caps.ok || !Model.capabilitiesCompatible(caps.value)) {
+      if (code !== 0 || !caps.ok || !Model.capabilitiesCompatible(caps.value)) {
         root.setNotReady("cli_incompatible")
         return
       }
       root.probeKind = "doctor"
-      probeProc.command = ["omaxerahs", "doctor", "--json"]
+      probeProc.command = root.boundedCommand(root.probeTimeoutSec, ["omaxerahs", "doctor", "--json"])
       probeProc.running = true
       return
     }
 
     if (kind === "doctor") {
       var doctor = Model.parseOneJsonObject(stdout)
-      if (Number(exitCode) !== 0 || !doctor.ok || !Model.doctorReady(doctor.value)) {
+      if (code !== 0 || !doctor.ok || !Model.doctorReady(doctor.value)) {
         var code = "image_not_ready"
         if (doctor.ok && doctor.value && doctor.value.error && doctor.value.error.code === "secret_store") {
           code = "secret_store"
