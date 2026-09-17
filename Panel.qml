@@ -34,6 +34,7 @@ Panel {
     if (uploadService && typeof uploadService.onPanelOpened === "function") uploadService.onPanelOpened()
     Qt.callLater(function() {
       if (root.opened) setCenterHoverRevealSuppressed(true)
+      if (root.opened && keyCatcher) keyCatcher.forceActiveFocus()
     })
   }
 
@@ -54,13 +55,38 @@ Panel {
   }
 
   function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
+    if (root.bar && typeof root.bar.setCenterHoverRevealSuppressed === "function")
+      root.bar.setCenterHoverRevealSuppressed(value)
+    else if (root.bar && "centerHoverRevealSuppressed" in root.bar)
       root.bar.centerHoverRevealSuppressed = value
   }
 
   function captureMode() {
     var mode = setting("captureMode", "smart")
     return mode === undefined || mode === null || mode === "" ? "smart" : String(mode)
+  }
+
+  // KeyboardPanel primes WlrKeyboardFocus.Exclusive. If capture starts while
+  // that overlay is still open, Hyprland routes keys (including Super+W) and
+  // pointer events to it, so slurp never runs and the panel cannot be dismissed.
+  function startCapture() {
+    var mode = root.captureMode()
+    root.close()
+    Qt.callLater(function() {
+      if (root.uploadService) root.uploadService.capture(mode)
+    })
+  }
+
+  onOpenedChanged: if (opened && keyCatcher) Qt.callLater(function() {
+    if (root.opened && keyCatcher) keyCatcher.forceActiveFocus()
+  })
+
+  Connections {
+    target: root.uploadService
+    function onStateChanged() {
+      if (root.opened && root.uploadService && String(root.uploadService.state) === "capturing")
+        root.close()
+    }
   }
 
   KeyboardPanel {
@@ -77,16 +103,16 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      onActivateRequested: {
-        if (root.uploadService) root.uploadService.capture(root.captureMode())
-      }
+      onActivateRequested: root.startCapture()
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         if (t === "c" || t === "C") {
-          if (root.uploadService) root.uploadService.capture(root.captureMode())
+          root.startCapture()
         } else if (t === "r" || t === "R") {
           if (root.uploadService) root.uploadService.retry()
+        } else if (t === "q" || t === "Q") {
+          root.close()
         }
       }
 
@@ -151,9 +177,7 @@ Panel {
               foreground: root.contentForeground
               fontFamily: root.contentFontFamily
               bordered: true
-              onClicked: {
-                if (root.uploadService) root.uploadService.capture(root.captureMode())
-              }
+              onClicked: root.startCapture()
             }
 
             Button {

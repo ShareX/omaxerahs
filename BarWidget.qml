@@ -133,6 +133,7 @@ BarWidget {
         if (root.uploadService) root.uploadService.retry()
         return
       }
+      if (root.opened) root.close()
       if (root.uploadService) root.uploadService.capture(root.captureMode)
     }
 

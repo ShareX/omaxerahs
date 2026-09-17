@@ -88,7 +88,7 @@ omarchy-shell omaxerahs status
 omarchy-shell omaxerahs retry
 ```
 
-Bar: left-click captures with the widget's `captureMode` (default `smart`) and uploads. Right-click opens the panel. The panel has Capture and Retry (Retry only after a failed upload of a still-present file).
+Bar: left-click captures with the widget's `captureMode` (default `smart`) and uploads. Right-click opens the panel. The panel has Capture and Retry (Retry only after a failed upload of a still-present file). Escape or `q` closes the panel. Capture from the panel dismisses it first so the overlay cannot keep keyboard focus.
 
 Canceling the region picker is silent: no notification, no clipboard change, no upload.
 
