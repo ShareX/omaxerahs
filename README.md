@@ -5,19 +5,32 @@ Omarchy plugin that captures a screenshot with Omarchy, then uploads that exact 
 Version 1 is **explicit capture-and-upload only**. It does not watch directories, does not watch the clipboard, and does not enable automatic upload on install.
 
 Plugin id: `io.github.sharex.omaxerahs`  
-IPC target: `omaxerahs`
+IPC target: `omaxerahs`  
+License: MIT ([LICENSE](LICENSE))
 
-## Install
+## Dependencies
 
-```
-omarchy plugin add https://github.com/ShareX/omaxerahs.git
-```
+This plugin is an adapter. It does not ship XerahS, upload providers, or credentials.
 
-The plugin is an adapter. It does not ship the uploader. Install **native** XerahS (not Flatpak) so `/usr/bin/omaxerahs` is on `PATH`.
+| Dependency | Why |
+| --- | --- |
+| [Omarchy](https://omarchy.org/) with Quickshell plugins | Host shell (`omarchy plugin add`, bar widget, IPC) |
+| Native [XerahS](https://github.com/ShareX/XerahS) (not Flatpak) | Provides `/usr/bin/omaxerahs` |
+| `wl-clipboard` | Copies the upload URL with `wl-copy` when that setting is on |
+
+Confirm the CLI is on `PATH`:
 
 ```
 command -v omaxerahs
 ```
+
+## Install
+
+```
+omarchy plugin add https://github.com/ShareX/omaxerahs.git --enable
+```
+
+Nothing is uploaded on install. Automatic directory watching is not present in v1.
 
 ## First run
 
@@ -87,6 +100,15 @@ Plugins run **unsandboxed** inside `omarchy-shell` with your user account. Marke
 
 Local PNGs are never deleted, moved, or rewritten. Persistent UI shows host + filename, not the full URL. The URL is copied with `wl-copy` only after a successful `http://` or `https://` result, and only when `copyUrlToClipboard` is on.
 
+## Test
+
+```
+./tests/model-test.sh
+omarchy plugin validate .
+```
+
+Automated tests cover path validation and JSON fail-closed behaviour. They cannot exercise grim, Hyprland, or `wl-copy`. On an Omarchy box follow [TODO-OMARCHY-E2E.md](TODO-OMARCHY-E2E.md).
+
 ## Disable / remove
 
 ```
@@ -108,7 +130,3 @@ Bar-widget settings in `shell.json`:
 | `captureMode` | `smart` | `smart`, `region`, `windows`, or `fullscreen` |
 
 v1 does not watch directories.
-
-## End-to-end on Omarchy
-
-Automated tests here cannot exercise grim, Hyprland, or `wl-copy`. On an Omarchy box follow [TODO-OMARCHY-E2E.md](TODO-OMARCHY-E2E.md).
