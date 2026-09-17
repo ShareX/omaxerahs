@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.sharex.omaxerahs",
   "name": "OmaXerahs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "ShareX Team",
   "license": "MIT",
   "description": "Upload Omarchy screenshots with your configured XerahS image destination.",

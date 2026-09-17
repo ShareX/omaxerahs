@@ -181,6 +181,14 @@ Panel {
             }
 
             Button {
+              text: "Cancel"
+              foreground: root.contentForeground
+              fontFamily: root.contentFontFamily
+              bordered: true
+              onClicked: root.close()
+            }
+
+            Button {
               text: "Retry"
               visible: root.canRetry
               foreground: root.contentForeground
