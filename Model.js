@@ -7,6 +7,9 @@ var QUEUE_BOUND = 8
 var CAPTURE_MODES = ["smart", "region", "windows", "fullscreen"]
 var TRANSIENT_CODES = ["network", "timeout"]
 var NO_AUTO_RETRY_CODES = ["auth", "not_ready", "secret_store"]
+var CAPTURE_DELAY_MIN = 0
+var CAPTURE_DELAY_MAX = 60
+var CAPTURE_DELAY_DEFAULT = 3
 var SCREENSHOT_BASENAME = /^screenshot-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.png$/
 
 function isCaptureMode(mode) {
@@ -15,6 +18,15 @@ function isCaptureMode(mode) {
     if (CAPTURE_MODES[i] === value) return true
   }
   return false
+}
+
+function clampDelaySeconds(value) {
+  var n = Number(value)
+  if (!isFinite(n) || isNaN(n)) return CAPTURE_DELAY_DEFAULT
+  n = Math.floor(n)
+  if (n < CAPTURE_DELAY_MIN) return CAPTURE_DELAY_MIN
+  if (n > CAPTURE_DELAY_MAX) return CAPTURE_DELAY_MAX
+  return n
 }
 
 function basename(path) {
@@ -283,6 +295,8 @@ function statusPayload(fields) {
     notifyOnComplete: src.notifyOnComplete !== false,
     openUrlOnNotificationClick: src.openUrlOnNotificationClick === true,
     captureMode: isCaptureMode(src.captureMode) ? String(src.captureMode) : "smart",
+    delaySeconds: clampDelaySeconds(src.delaySeconds),
+    countdownRemaining: Number(src.countdownRemaining || 0),
     last: src.last === undefined ? null : src.last
   }
 }
@@ -293,8 +307,12 @@ if (typeof module !== "undefined") {
     SCHEMA_VERSION: SCHEMA_VERSION,
     QUEUE_BOUND: QUEUE_BOUND,
     CAPTURE_MODES: CAPTURE_MODES,
+    CAPTURE_DELAY_MIN: CAPTURE_DELAY_MIN,
+    CAPTURE_DELAY_MAX: CAPTURE_DELAY_MAX,
+    CAPTURE_DELAY_DEFAULT: CAPTURE_DELAY_DEFAULT,
     SCREENSHOT_BASENAME: SCREENSHOT_BASENAME,
     isCaptureMode: isCaptureMode,
+    clampDelaySeconds: clampDelaySeconds,
     basename: basename,
     isHttpUrl: isHttpUrl,
     hostFromUrl: hostFromUrl,
