@@ -110,6 +110,14 @@ check("three attempts then stop", model.canRetryAttempt(2, "network") === true)
 check("fourth attempt is not scheduled", model.canRetryAttempt(3, "network") === false)
 check("auth is not auto-retried even on first failure", model.canRetryAttempt(1, "auth") === false)
 
+check("delay zero is allowed", model.clampDelaySeconds(0) === 0)
+check("delay default for missing", model.clampDelaySeconds(undefined) === model.CAPTURE_DELAY_DEFAULT)
+check("delay clamps above max", model.clampDelaySeconds(999) === model.CAPTURE_DELAY_MAX)
+check("delay clamps below min", model.clampDelaySeconds(-7) === model.CAPTURE_DELAY_MIN)
+check("delay floors floats", model.clampDelaySeconds(2.9) === 2)
+check("delay ignores NaN", model.clampDelaySeconds(NaN) === model.CAPTURE_DELAY_DEFAULT)
+check("delay ignores non-finite", model.clampDelaySeconds(Infinity) === model.CAPTURE_DELAY_DEFAULT)
+
 let queue = []
 for (let i = 0; i < 8; i++) {
   const p = "/tmp/screenshot-2026-09-02_14-22-0" + i + ".png"
@@ -154,11 +162,37 @@ const status = model.statusPayload({
   notifyOnComplete: true,
   openUrlOnNotificationClick: false,
   captureMode: "smart",
+  delaySeconds: 7,
+  countdownRemaining: 0,
   last: null
 })
 check("status JSON has no autoUploadEnabled", !Object.prototype.hasOwnProperty.call(status, "autoUploadEnabled"))
 check("status plugin id matches", status.pluginId === "io.github.sharex.omaxerahs")
 check("status schemaVersion is 1", status.schemaVersion === 1)
+check("status exposes clamped delaySeconds", status.delaySeconds === 7)
+
+const countdownStatus = model.statusPayload({
+  state: "countdown",
+  readiness: "ready",
+  queueLength: 0,
+  copyUrlToClipboard: true,
+  notifyOnComplete: true,
+  openUrlOnNotificationClick: false,
+  captureMode: "smart",
+  delaySeconds: 5,
+  countdownRemaining: 3,
+  last: null
+})
+check("status carries countdownRemaining", countdownStatus.countdownRemaining === 3)
+
+const idleStatus = model.statusPayload({
+  state: "idle",
+  readiness: "ready",
+  queueLength: 0,
+  captureMode: "smart",
+  last: null
+})
+check("idle status zeroes countdownRemaining", idleStatus.countdownRemaining === 0)
 
 const invalidMode = JSON.parse(model.errorJson("invalid_mode", "nope"))
 check("invalid_mode error JSON", invalidMode.ok === false && invalidMode.error.code === "invalid_mode")
