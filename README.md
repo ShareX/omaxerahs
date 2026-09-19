@@ -84,13 +84,27 @@ Other modes: `region`, `windows`, `fullscreen`.
 
 ```
 omarchy-shell omaxerahs capture region
+omarchy-shell omaxerahs captureDelayed smart
+omarchy-shell omaxerahs cancel
 omarchy-shell omaxerahs status
 omarchy-shell omaxerahs retry
 ```
 
-Bar: left-click captures with the widget's `captureMode` (default `smart`) and uploads. Right-click opens the panel. The panel has Capture, Cancel, and Retry (Retry only after a failed upload of a still-present file). Cancel closes the panel. Capture from the panel dismisses it first so the overlay cannot keep keyboard focus. Super+W does not close this overlay; use Cancel.
+Bar: left-click captures with the widget's `captureMode` (default `smart`) and uploads. Right-click opens the panel. The panel has Capture, Capture (Ns), Cancel, and Retry (Retry only after a failed upload of a still-present file). Cancel closes the panel. Capture from the panel dismisses it first so the overlay cannot keep keyboard focus. Super+W does not close this overlay; use Cancel.
 
 Canceling the region picker is silent: no notification, no clipboard change, no upload.
+
+### Timed capture (panel only)
+
+Omarchy's stock `omarchy-capture-screenshot` does not support a delay, and neither does `grim`. OmaXerahs implements its own countdown so you can put the window you want on top, walk back to the desk, and have the screenshot already uploaded.
+
+- Configure the delay with the slider in the panel (0–60 seconds; 0 disables the feature).
+- Press the **Capture (Ns)** button (or the **d** key in the panel) to start a countdown.
+- The bar widget shows `in Ns` with a timer glyph during countdown.
+- The panel stays open so you can abort; press **Cancel (Ns)**, the regular **Cancel** button, or the **q** key to cancel.
+- When the countdown reaches 0 the panel dismisses and the regular capture/upload pipeline runs. The remaining state machine is identical to a normal Capture.
+
+The countdown lives entirely in OmaXerahs; Omarchy has no built-in timer setting to read from.
 
 ## Privacy
 
@@ -128,5 +142,6 @@ Bar-widget settings in `shell.json`:
 | `notifyOnComplete` | `true` | Omarchy notification on success |
 | `openUrlOnNotificationClick` | `false` | Only then is `--exec xdg-open <url>` added |
 | `captureMode` | `smart` | `smart`, `region`, `windows`, or `fullscreen` |
+| `captureDelaySeconds` | `3` | Seconds the panel waits before invoking grim (0 = off) |
 
 v1 does not watch directories.
