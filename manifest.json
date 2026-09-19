@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.sharex.omaxerahs",
   "name": "OmaXerahs",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "ShareX Team",
   "license": "MIT",
   "description": "Upload Omarchy screenshots with your configured XerahS image destination.",
@@ -22,7 +22,8 @@
       "copyUrlToClipboard": true,
       "notifyOnComplete": true,
       "openUrlOnNotificationClick": false,
-      "captureMode": "smart"
+      "captureMode": "smart",
+      "captureDelaySeconds": 3
     },
     "schema": [
       {
@@ -49,6 +50,15 @@
         "label": "Capture mode for the bar button",
         "options": ["smart", "region", "windows", "fullscreen"],
         "defaultValue": "smart"
+      },
+      {
+        "key": "captureDelaySeconds",
+        "type": "integer",
+        "label": "Capture delay (seconds, 0 = off)",
+        "min": 0,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 3
       }
     ]
   }
