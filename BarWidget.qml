@@ -12,11 +12,22 @@ BarWidget {
   readonly property string captureMode: Model.isCaptureMode(setting("captureMode", "smart"))
     ? String(setting("captureMode", "smart"))
     : "smart"
+  readonly property int delaySeconds: {
+    var raw = setting("captureDelaySeconds", 3)
+    var n = Number(raw)
+    if (!isFinite(n) || isNaN(n)) return 3
+    n = Math.floor(n)
+    if (n < 0) return 0
+    if (n > 60) return 60
+    return n
+  }
+  readonly property int countdownRemaining: uploadService ? Number(uploadService.countdownRemaining || 0) : 0
 
   readonly property string serviceState: uploadService ? String(uploadService.state || "not_ready") : "not_ready"
   readonly property string lastHost: uploadService ? String(uploadService.lastHost || "") : ""
 
   readonly property string statusGlyph: {
+    if (serviceState === "countdown") return "󰔝"
     if (serviceState === "uploading" || serviceState === "queued") return "󰇚"
     if (serviceState === "capturing") return "󰹑"
     if (serviceState === "failed" || serviceState === "not_ready") return "󰅙"
@@ -25,6 +36,7 @@ BarWidget {
   }
 
   readonly property string statusLabel: {
+    if (serviceState === "countdown") return "in " + root.countdownRemaining + "s"
     if (serviceState === "uploading" || serviceState === "queued") return "Uploading"
     if (serviceState === "capturing") return "Capture"
     if (serviceState === "failed") return "Failed"
@@ -54,7 +66,8 @@ BarWidget {
       copyUrlToClipboard: root.setting("copyUrlToClipboard", true),
       notifyOnComplete: root.setting("notifyOnComplete", true),
       openUrlOnNotificationClick: root.setting("openUrlOnNotificationClick", false),
-      captureMode: root.captureMode
+      captureMode: root.captureMode,
+      captureDelaySeconds: root.delaySeconds
     })
   }
 
@@ -115,11 +128,12 @@ BarWidget {
     labelVisible: !root.vertical
     hasVisualContent: true
     dimmed: root.serviceState === "not_ready"
-    active: root.serviceState === "uploading" || root.serviceState === "queued" || root.serviceState === "capturing"
-    tooltipText: "Left-click captures and uploads · Right-click opens the panel"
+    active: root.serviceState === "uploading" || root.serviceState === "queued" || root.serviceState === "capturing" || root.serviceState === "countdown"
+    tooltipText: "Left-click captures and uploads · Right-click opens the panel · Right-click → Capture (Ns) for a timed capture"
     foreground: {
       if (!root.bar) return Color.foreground
       if (root.serviceState === "uploading" || root.serviceState === "queued") return Color.accent
+      if (root.serviceState === "countdown") return Color.accent
       if (root.serviceState === "not_ready" || root.serviceState === "failed") return Qt.darker(root.bar.barForeground, 1.5)
       return root.bar.barForeground
     }
