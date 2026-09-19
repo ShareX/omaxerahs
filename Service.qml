@@ -15,6 +15,9 @@ Item {
   property bool notifyOnComplete: true
   property bool openUrlOnNotificationClick: false
   property string captureMode: "smart"
+  property int delaySeconds: Model.CAPTURE_DELAY_DEFAULT
+  property int countdownRemaining: 0
+  property string pendingDelayedMode: ""
 
   property string state: "not_ready"
   property string readiness: "cli_missing"
@@ -84,6 +87,7 @@ Item {
     if ("notifyOnComplete" in obj) notifyOnComplete = !!obj.notifyOnComplete
     if ("openUrlOnNotificationClick" in obj) openUrlOnNotificationClick = !!obj.openUrlOnNotificationClick
     if ("captureMode" in obj && Model.isCaptureMode(obj.captureMode)) captureMode = String(obj.captureMode)
+    if ("captureDelaySeconds" in obj) delaySeconds = Model.clampDelaySeconds(obj.captureDelaySeconds)
   }
 
   function statusJson() {
@@ -95,6 +99,8 @@ Item {
       notifyOnComplete: root.notifyOnComplete,
       openUrlOnNotificationClick: root.openUrlOnNotificationClick,
       captureMode: root.captureMode,
+      delaySeconds: root.delaySeconds,
+      countdownRemaining: root.state === "countdown" ? root.countdownRemaining : 0,
       last: root.lastLocalPath === "" && root.lastAt === "" ? null : {
         ok: root.lastOk,
         localPath: root.lastLocalPath,
@@ -132,6 +138,70 @@ Item {
     captureProc.command = root.boundedCommand(root.captureTimeoutSec, ["omarchy", "capture", "screenshot", value, "save"])
     captureProc.running = true
     return Model.acceptedJson("capturing")
+  }
+
+  function captureDelayed(mode) {
+    var value = String(mode === undefined || mode === null ? "" : mode)
+    if (!Model.isCaptureMode(value)) {
+      return Model.errorJson("invalid_mode", "mode must be smart, region, windows, or fullscreen")
+    }
+    if (root.tearingDown) {
+      return Model.errorJson("cancelled", "service is shutting down")
+    }
+    if (root.state === "countdown") {
+      return Model.errorJson("busy", "A timed capture is already counting down")
+    }
+    if (captureProc.running || root.state === "capturing") {
+      return Model.errorJson("busy", "A capture is already in progress")
+    }
+
+    var seconds = Model.clampDelaySeconds(root.delaySeconds)
+    if (seconds <= 0) return root.capture(value)
+
+    root.pendingDelayedMode = value
+    root.countdownRemaining = seconds
+    root.state = "countdown"
+    countdownTimer.restart()
+    return Model.acceptedJson("countdown", {
+      countdownRemaining: root.countdownRemaining,
+      captureMode: value
+    })
+  }
+
+  function cancelCapture() {
+    if (root.state !== "countdown") {
+      return Model.acceptedJson(root.state === "capturing" ? "capturing" : root.state)
+    }
+    countdownTimer.stop()
+    root.pendingDelayedMode = ""
+    root.countdownRemaining = 0
+    if (root.lastErrorCode && !root.lastOk) root.state = "failed"
+    else if (root.readiness !== "ready") root.state = "not_ready"
+    else root.state = "idle"
+    return Model.acceptedJson(root.state)
+  }
+
+  function onCountdownTick() {
+    if (root.state !== "countdown") return
+    root.countdownRemaining = Math.max(0, root.countdownRemaining - 1)
+    if (root.countdownRemaining > 0) return
+
+    var mode = root.pendingDelayedMode
+    root.pendingDelayedMode = ""
+    if (!Model.isCaptureMode(mode)) {
+      cancelCapture()
+      return
+    }
+    var result = root.capture(mode)
+    if (result && typeof result === "string") {
+      var parsed = Model.parseOneJsonObject(result)
+      if (!parsed.ok) {
+        root.countdownRemaining = 0
+        if (root.lastErrorCode && !root.lastOk) root.state = "failed"
+        else if (root.readiness !== "ready") root.state = "not_ready"
+        else root.state = "idle"
+      }
+    }
   }
 
   function retry() {
@@ -611,6 +681,7 @@ Item {
     retryTimer.stop()
     doctorTimer.stop()
     idleAfterSuccess.stop()
+    countdownTimer.stop()
     root.uploadQueue = []
     root.clearInFlight()
     root.stopProcess(captureProc)
@@ -637,6 +708,13 @@ Item {
       root.captureTimedOut = true
       root.stopProcess(captureProc)
     }
+  }
+
+  Timer {
+    id: countdownTimer
+    interval: 1000
+    repeat: true
+    onTriggered: root.onCountdownTick()
   }
 
   Timer {
@@ -769,6 +847,14 @@ Item {
 
     function capture(mode: string): string {
       return root.capture(mode)
+    }
+
+    function captureDelayed(mode: string): string {
+      return root.captureDelayed(mode)
+    }
+
+    function cancel(): string {
+      return root.cancelCapture()
     }
 
     function status(): string {
