@@ -18,7 +18,12 @@ their version number so the Omarchy shell can detect a mismatch via
 
 ---
 
-## v0.1.4 — in progress (Capture delay)
+## v0.1.4 — 2026-10-05 (Capture delay)
+
+Also: the not-ready hint and the manifest description now say "image or
+file destination". `omaxerahs` 0.32.4 uploads through a File destination
+when no Image destination exists, the same way XerahS does, so a setup
+with only Amazon S3 (File) is ready.
 
 **Adds a configurable 3-second delayed-capture button alongside the
 existing immediate Capture button.** New `captureDelaySeconds` setting

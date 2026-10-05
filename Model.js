@@ -249,7 +249,7 @@ function readinessMessage(code) {
     case "cli_flatpak":
       return "Flatpak XerahS is not supported. Install native xerahs so /usr/bin/omaxerahs is on PATH."
     case "image_not_ready":
-      return "Configure an image destination in the XerahS GUI, then run omaxerahs doctor --json."
+      return "Configure an image or file destination in XerahS (Settings > Destination Settings), then run omaxerahs doctor --json."
     case "secret_store":
       return "The XerahS secret store is not ready. Unlock libsecret or re-enter destination credentials."
     case "secret_store_fallback":

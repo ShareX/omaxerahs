@@ -1,6 +1,6 @@
 # OmaXerahs
 
-Omarchy plugin that captures a screenshot with Omarchy, then uploads that exact PNG through the native `omaxerahs` CLI to your configured XerahS **image** destination.
+Omarchy plugin that captures a screenshot with Omarchy, then uploads that exact PNG through the native `omaxerahs` CLI to your configured XerahS destination: an **image** destination first, otherwise a **file** destination such as Amazon S3 (the same routing as XerahS; needs `omaxerahs` 0.32.4 or newer).
 
 Version 1 is **explicit capture-and-upload only**. It does not watch directories, does not watch the clipboard, and does not enable automatic upload on install.
 

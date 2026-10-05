@@ -5,7 +5,7 @@
   "version": "0.1.4",
   "author": "ShareX Team",
   "license": "MIT",
-  "description": "Upload Omarchy screenshots with your configured XerahS image destination.",
+  "description": "Upload Omarchy screenshots through your configured XerahS image or file destination.",
   "kinds": ["service", "bar-widget"],
   "keepLoaded": true,
   "entryPoints": {
