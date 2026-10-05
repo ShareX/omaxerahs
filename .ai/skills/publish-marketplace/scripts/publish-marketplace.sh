@@ -41,9 +41,10 @@ echo "Repository: $REPO_URL"
 # 1. Working tree is clean, on main, and identical to origin/main.
 [[ "$(git rev-parse --abbrev-ref HEAD)" == "main" ]] || fail "check out main first"
 [[ -z "$(git status --porcelain)" ]] || fail "working tree has uncommitted changes"
-git fetch -q origin main
+# Compare against the remote by commit ID only (ls-remote downloads no code).
 HEAD_SHA="$(git rev-parse HEAD)"
-REMOTE_SHA="$(git rev-parse origin/main)"
+REMOTE_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+[[ "$REMOTE_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "could not read origin main"
 [[ "$HEAD_SHA" == "$REMOTE_SHA" ]] || fail "main ($HEAD_SHA) differs from origin/main ($REMOTE_SHA); push or pull first"
 
 # 2. The changelog has a dated entry for the manifest version.

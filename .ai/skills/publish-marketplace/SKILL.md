@@ -31,4 +31,5 @@ OmaXerahs is listed at https://plugins.omarchy.org/plugin.html?id=io.github.shar
 - Leave the *standard installation* box unchecked. OmaXerahs needs XerahS and the `omaxerahs` CLI installed first, so the listing keeps its manual-setup note.
 - Keep the plugin ID `io.github.sharex.omaxerahs`; marketplace IDs are permanent.
 - Spawn helpers only through `run-bounded`. The marketplace review rejected an earlier version for an unbounded `StdioCollector`.
+- Do not add `git fetch`, `git clone` or `git pull` to any script in this repository, including tooling. The security baseline flags a remote Git source followed by executing repository code as `remote-git-execution-unpinned` and asks for manual review (it did for 48ef682). Read remote commit IDs with `git ls-remote` instead.
 - A first listing of a new plugin uses the submission flow in the marketplace `SUBMISSION.md`, not this script.
